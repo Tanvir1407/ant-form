@@ -22,23 +22,58 @@ function App() {
     dispatch(fetchData());
   }, [dispatch]);
   
+  const [Products, setProducts] = useState([]);
   
   const { data ,isLoading, isError, error} = useSelector(state => state.data)
   
 
-    const handleProductSelect = (value, key) => {
+    const handleProductSelect = (value, key ,fields) => {
 
       const product = data?.getAllProduct?.find((item) => item.name === value);
+      
       if (product) {
-        const unit = product.unitMeasurement; 
-        const vat = product.productVat; 
-        const productSalePrice = product.productSalePrice; 
-        console.log(vat)
-        form.setFieldsValue({
-          [`users[${key}].unit`]: unit,
-          [`users[${key}].Vat`]: vat,
-          [`users[${key}].productSalePrice`]: productSalePrice,
-        });
+        const productName = product.name;
+        const unit = product.unitMeasurement || 0; 
+        const Vat = product.productVat  || 0.00; 
+        const productSalePrice = product.productSalePrice || 0.00;
+        const quantity = product.productQuantity || 0;
+        const vat = Vat + "%";
+
+        
+          const Total = quantity * productSalePrice +
+            (quantity * productSalePrice * Vat) / 100;
+        let total = Total.toFixed(2)
+        
+        
+        let newProduct = { productName, unit, quantity, productSalePrice, vat, total };
+        
+
+        
+        if (Products.length === 0) {
+          form.setFieldsValue({
+            products: [newProduct]
+          });   
+        const fields = form.getFieldsValue(["products"]);
+        setProducts(fields.products);          
+      }
+
+
+        if (Products.length > 0) {
+          if (key >= 0 && key < Products.length) {
+            Products[key] = newProduct;
+            form.setFieldsValue({
+              products: Products,
+            });
+            setProducts(Products);
+          } else {
+            Products.push(newProduct);
+            form.setFieldsValue({
+              products: Products,
+            });
+            const fields = form.getFieldsValue(["products"]);
+            setProducts(fields.products);
+          }
+        }
       }
     };
   
@@ -57,8 +92,9 @@ function App() {
           name="control-ref"
           onFinish={onFinish}
           autoComplete="off"
+          layout="vertical"
         >
-          <Form.List name="users">
+          <Form.List name="products">
             {(fields, { add, remove }) => (
               <>
                 <div className="mb-3">
@@ -75,7 +111,7 @@ function App() {
                   <hr />
                 </div>
 
-                {fields.map(({ key, name, ...restField }) => (
+                {fields.map(({ key, name, ...restField  }, index) => (
                   <Space
                     key={key}
                     style={{
@@ -84,9 +120,10 @@ function App() {
                     }}
                     align="baseline"
                   >
+                    <span>{index + 1}</span>
                     <Form.Item
                       {...restField}
-                      name={[key, "product"]}
+                      name={[key, "productName"]}
                       rules={[
                         {
                           required: true,
@@ -99,7 +136,7 @@ function App() {
                         placeholder="Select a product"
                         optionFilterProp="children"
                         style={{ width: 400 }}
-                        onChange={handleProductSelect}
+                        onChange={(value)=>handleProductSelect(value,index ,fields)}
                       >
                         {data?.getAllProduct?.map((item) => (
                           <Option key={item.id} value={item.name}></Option>
@@ -107,7 +144,7 @@ function App() {
                       </Select>
                     </Form.Item>
 
-                    <Form.Item {...restField} name={[key, "unit"]}>
+                    <Form.Item {...restField} name={[name, "unit"]}>
                       <InputNumber
                         readOnly
                         placeholder="U.M."
@@ -117,7 +154,7 @@ function App() {
 
                     <Form.Item
                       {...restField}
-                      name={[key, "quantity"]}
+                      name={[name, "quantity"]}
                       rules={[
                         {
                           required: true,
@@ -129,14 +166,13 @@ function App() {
                         min={1}
                         style={{ width: 200 }}
                         placeholder="Quantity"
-                        defaultValue="1"
                         // onChange={onChange}
                       />
                     </Form.Item>
 
                     <Form.Item
                       {...restField}
-                      name={[key, "productSalePrice"]}
+                      name={[name, "productSalePrice"]}
                       rules={[
                         {
                           required: true,
@@ -151,20 +187,12 @@ function App() {
                       />
                     </Form.Item>
 
-                    <Form.Item
-                      {...restField}
-                      name={[key, "Vat"]}
-                      defaultValue="0.00"
-                    >
-                      <Input bordered={false} />
+                    <Form.Item {...restField} name={[name, "vat"]}>
+                      <Input bordered={false} defaultValue={0+"%"} />
                     </Form.Item>
 
-                    <Form.Item
-                      defaultValue={0}
-                      {...restField}
-                      name={[key, "Total"]}
-                    >
-                      <Input bordered={false} />
+                    <Form.Item {...restField} name={[name, "total"]}>
+                      <Input bordered={false} defaultValue={0} />
                     </Form.Item>
 
                     <DeleteOutlined
@@ -195,8 +223,9 @@ function App() {
             {/* form left side */}
 
             <div className="w-[48%]">
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <Form.Item
+                  label="customer"
                   name={[name, "customerId"]}
                   rules={[
                     {
@@ -219,7 +248,7 @@ function App() {
                 <Button
                   // type="primary"
                   icon={<PlusOutlined />}
-                  className="ml-2"
+                  className="ml-2 mb-[-5px]"
                   // onClick={() => enterLoading(1)}
                 >
                   Customer
@@ -227,12 +256,22 @@ function App() {
               </div>
 
               <div className="flex justify-between">
-                <Form.Item style={{ width: "49%" }}>
+                <Form.Item
+                  style={{ width: "49%" }}
+                  label="Date"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Date is required",
+                    },
+                  ]}
+                >
                   <DatePicker style={{ width: "100%" }} />
                 </Form.Item>
                 <Form.Item
                   style={{ width: "49%" }}
                   name={[name, "userId"]}
+                  label="Sales Person"
                   rules={[
                     {
                       required: true,
@@ -254,17 +293,17 @@ function App() {
                   </Select>
                 </Form.Item>
               </div>
-              <Form.Item>
+              <Form.Item label="Shipping Address">
                 <Input placeholder="Shopping Address" />
               </Form.Item>
-              <Form.Item>
+              <Form.Item label="Note">
                 <Input placeholder="Write sale Note" />
               </Form.Item>
             </div>
 
             {/* form write side */}
             <div className="w-[48%]">
-              <div className="flex justify-between mb-1">
+              <div className="flex justify-between mb-2">
                 <strong>Total:</strong>
                 <strong>0.00</strong>
               </div>
@@ -274,7 +313,7 @@ function App() {
                   <InputNumber style={{ width: "250px" }} min={0} />
                 </Form.Item>
               </div>
-              <div className="flex justify-between mb-1">
+              <div className="flex justify-between mb-2">
                 <span>After Discount</span>
                 <span>0.00</span>
               </div>
@@ -294,7 +333,7 @@ function App() {
                   ))}
                 </Select>
               </div>
-              <div className="flex justify-between my-2">
+              <div className="flex justify-between my-3">
                 <span>Total payable</span>
                 <span>0.00</span>
               </div>
@@ -305,7 +344,7 @@ function App() {
                   <InputNumber style={{ width: "250px" }} min={0} />
                 </Form.Item>
               </div>
-              <div className="flex justify-between ">
+              <div className="flex justify-between mb-2">
                 <strong>Due Amount</strong>
                 <strong>0.00</strong>
               </div>
