@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+
+import  { useEffect, useState } from "react";
 import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Button,
@@ -15,12 +16,13 @@ import { fetchData } from "./features/Data/dataSlice";
 
 //calculate total price for every product
 const calculateTotal = (quantity, productSalePrice, Vat) => {
-  console.log(quantity, productSalePrice, Vat);
   const total =
-    quantity * productSalePrice + (quantity * productSalePrice * Vat) / 100;
+    quantity * productSalePrice +
+    (quantity * productSalePrice * Vat) / 100;
   const Total = total.toFixed(2);
   return parseFloat(Total);
 };
+
 
 function App() {
   const [form] = Form.useForm();
@@ -43,28 +45,6 @@ function App() {
   const [paidAmount, setPaidAmount] = useState(0);
   const [DuaAmount, setDuaAmount] = useState(0);
 
-  useEffect(() => {
-    const totalPrice = Products.reduce((sum, product) => {
-      return sum + product.total;
-    }, 0);
-    const TotalPrice = totalPrice.toFixed(2);
-    setTotalProductsPrice(parseFloat(TotalPrice));
-
-    setAfterDiscount(totalProductsPrice - discount);
-    const amountToAdd = (vatTax / 100) * afterDiscount;
-    const newBalance = afterDiscount + amountToAdd;
-    setPayable(newBalance);
-    setDuaAmount(payable - paidAmount);
-  }, [
-    Products,
-    discount,
-    setAfterDiscount,
-    totalProductsPrice,
-    afterDiscount,
-    vatTax,
-    payable,
-    paidAmount,
-  ]);
 
   const handleProductSelect = (value, key) => {
     const product = data?.getAllProduct?.find((item) => item.name === value);
@@ -113,7 +93,21 @@ function App() {
         }
       }
     }
+    const fields = form.getFieldsValue(["products"]);
+    const totalPrice = fields?.products?.reduce((sum, product) => {
+      return sum + product.total;
+    }, 0);
+    const TotalPrice = totalPrice.toFixed(2);
+    setTotalProductsPrice(parseFloat(TotalPrice));
+    const afterDis = TotalPrice - discount;
+    setAfterDiscount(afterDis);
+
+    const amountToAdd = (vatTax / 100) * afterDis;
+    const newBalance = afterDis + amountToAdd;
+    setPayable(newBalance);
+    setDuaAmount(newBalance - paidAmount);
   };
+
   // update sale price
   const handleSalePrice = (e, key) => {
     const updateProduct = Products.map((product, index) => {
@@ -133,6 +127,16 @@ function App() {
     form.setFieldsValue({
       products: updateProduct,
     });
+
+    const fields = form.getFieldsValue(["products"]);
+    const totalPrice = fields?.products?.reduce((sum, product) => {
+      return sum + product.total;
+    }, 0);
+    const TotalPrice = totalPrice.toFixed(2);
+    setTotalProductsPrice(parseFloat(TotalPrice));
+    setAfterDiscount(TotalPrice - discount);
+    setPayable(TotalPrice - discount - vatTax);
+    setDuaAmount(TotalPrice - discount - vatTax - paidAmount);
   };
 
   // update product quantity
@@ -158,8 +162,25 @@ function App() {
     form.setFieldsValue({
       products: updateProduct,
     });
+
+    const fields = form.getFieldsValue(["products"]);
+    const totalPrice = fields?.products?.reduce((sum, product) => {
+      return sum + product.total;
+    }, 0);
+    const TotalPrice = totalPrice.toFixed(2);
+    setTotalProductsPrice(parseFloat(TotalPrice));
+    setAfterDiscount(TotalPrice - discount);
+    setPayable(TotalPrice - discount - vatTax);
+    setDuaAmount(TotalPrice - discount - vatTax - paidAmount);
   };
 
+  //handle discount
+  const handleDiscount = (e) => {
+    setDiscount(e);
+    setAfterDiscount(totalProductsPrice - e);
+    setPayable(totalProductsPrice - e - vatTax);
+    setDuaAmount(totalProductsPrice - e - vatTax - paidAmount);
+  };
   // update vat tax
   const handleChangeVatTax = (e) => {
     const filteredTax = data.getAllVats.filter((taxItem) =>
@@ -170,19 +191,28 @@ function App() {
       0
     );
     setVatTax(totalTax);
+    setPayable(afterDiscount + (afterDiscount * totalTax) / 100);
+    setDuaAmount(afterDiscount + (afterDiscount * totalTax) / 100 - paidAmount);
   };
-  const handlePaidAmount = (e) => {
+  const hanldePaidAmount = (e) => {
     setPaidAmount(e);
+    setDuaAmount(payable - e);
   };
   // remove product
   const handleRemoveProduct = (index) => {
-    const newProducts = Products.splice(index, 1);
-    setProducts(newProducts);
+    const fields = form.getFieldsValue(["products"]);
+    const totalPrice = fields?.products?.reduce((sum, product) => {
+      return sum + product.total;
+    }, 0);
+    const TotalPrice = totalPrice.toFixed(2);
+    setTotalProductsPrice(parseFloat(TotalPrice));
+    setAfterDiscount(TotalPrice - discount);
+    setPayable(TotalPrice - discount - vatTax);
+    setDuaAmount(TotalPrice - discount - vatTax - paidAmount);
   };
 
-
   const onFinish = (value) => {
-    // submit form
+    console.log(value);
   };
 
   let content;
@@ -325,14 +355,14 @@ function App() {
               </>
             )}
           </Form.List>
-          
+
           {/* form left side */}
           <div className="flex justify-between">
             <div className="w-[48%]">
               <div className="flex justify-between items-center">
                 <Form.Item
                   label="customer"
-                  name={[name, "customer"]}
+                  name={[name, "customerId"]}
                   rules={[
                     {
                       required: true,
@@ -376,7 +406,7 @@ function App() {
                 </Form.Item>
                 <Form.Item
                   style={{ width: "49%" }}
-                  name={[name, "user"]}
+                  name={[name, "userId"]}
                   label="Sales Person"
                   rules={[
                     {
@@ -415,9 +445,9 @@ function App() {
               </div>
               <div className="flex justify-between items-center">
                 <span>Discount</span>
-                <Form.Item name={[name, "discount"]}>
+                <Form.Item>
                   <InputNumber
-                    onChange={(e) => setDiscount(e)}
+                    onChange={handleDiscount}
                     style={{ width: "250px" }}
                     min={0}
                   />
@@ -429,36 +459,30 @@ function App() {
               </div>
               <div className="flex justify-between">
                 <span>Vat/Tax</span>
-                <Form.Item name={[name, "vats"]} className="my-0">
-                  <Select
-                    mode="multiple"
-                    allowClear
-                    style={{
-                      width: "250px",
-                    }}
-                    placeholder="Please select"
-                    onChange={handleChangeVatTax}
-                  >
-                    {data?.getAllVats?.map((v) => (
-                      <Option key={v.id} value={v.title}></Option>
-                    ))}
-                  </Select>
-                </Form.Item>
+                <Select
+                  mode="multiple"
+                  allowClear
+                  style={{
+                    width: "250px",
+                  }}
+                  placeholder="Please select"
+                  onChange={handleChangeVatTax}
+                >
+                  {data?.getAllVats?.map((v) => (
+                    <Option key={v.id} value={v.title}></Option>
+                  ))}
+                </Select>
               </div>
               <div className="flex justify-between my-3">
                 <span>Total payable</span>
-                <span>
-                  
-                    {payable}
-                 
-                </span>
+                <span>{payable}</span>
               </div>
 
               <div className="flex justify-between">
                 <span>Paid Amount</span>
-                <Form.Item name={[name , "paidAmount"]}>
+                <Form.Item>
                   <InputNumber
-                    onChange={(e) => handlePaidAmount(e)}
+                    onChange={(e) => hanldePaidAmount(e)}
                     style={{ width: "250px" }}
                     min={0}
                   />
@@ -481,5 +505,8 @@ function App() {
   }
   return content;
 }
+
+  
+
 
 export default App;
