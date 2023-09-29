@@ -1,5 +1,4 @@
-
-import  { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Button,
@@ -14,72 +13,178 @@ import { Option } from "antd/es/mentions";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchData } from "./features/Data/dataSlice";
 
+//calculate total price for every product
+const calculateTotal = (quantity, productSalePrice, Vat) => {
+  console.log(quantity, productSalePrice, Vat);
+  const total =
+    quantity * productSalePrice + (quantity * productSalePrice * Vat) / 100;
+  const Total = total.toFixed(2);
+  return parseFloat(Total);
+};
 
 function App() {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
+  // fetch data form server
   useEffect(() => {
     dispatch(fetchData());
   }, [dispatch]);
-  
+
+  // all added products state
   const [Products, setProducts] = useState([]);
-  
-  const { data ,isLoading, isError, error} = useSelector(state => state.data)
-  
+  //get data from redux store
+  const { data, isLoading } = useSelector((state) => state.data);
 
-    const handleProductSelect = (value, key ,fields) => {
+  const [totalProductsPrice, setTotalProductsPrice] = useState(0);
+  const [discount, setDiscount] = useState(0);
+  const [afterDiscount, setAfterDiscount] = useState(0);
+  const [vatTax, setVatTax] = useState(0);
+  const [payable, setPayable] = useState(0);
+  const [paidAmount, setPaidAmount] = useState(0);
+  const [DuaAmount, setDuaAmount] = useState(0);
 
-      const product = data?.getAllProduct?.find((item) => item.name === value);
-      
-      if (product) {
-        const productName = product.name;
-        const unit = product.unitMeasurement || 0; 
-        const Vat = product.productVat  || 0.00; 
-        const productSalePrice = product.productSalePrice || 0.00;
-        const quantity = product.productQuantity || 0;
-        const vat = Vat + "%";
+  useEffect(() => {
+    const totalPrice = Products.reduce((sum, product) => {
+      return sum + product.total;
+    }, 0);
+    const TotalPrice = totalPrice.toFixed(2);
+    setTotalProductsPrice(parseFloat(TotalPrice));
 
-        
-          const Total = quantity * productSalePrice +
-            (quantity * productSalePrice * Vat) / 100;
-        let total = Total.toFixed(2)
-        
-        
-        let newProduct = { productName, unit, quantity, productSalePrice, vat, total };
-        
+    setAfterDiscount(totalProductsPrice - discount);
+    const amountToAdd = (vatTax / 100) * afterDiscount;
+    const newBalance = afterDiscount + amountToAdd;
+    setPayable(newBalance);
+    setDuaAmount(payable - paidAmount);
+  }, [
+    Products,
+    discount,
+    setAfterDiscount,
+    totalProductsPrice,
+    afterDiscount,
+    vatTax,
+    payable,
+    paidAmount,
+  ]);
 
-        
-        if (Products.length === 0) {
-          form.setFieldsValue({
-            products: [newProduct]
-          });   
+  const handleProductSelect = (value, key) => {
+    const product = data?.getAllProduct?.find((item) => item.name === value);
+    if (product) {
+      const productName = product.name;
+      const unit = product.unitMeasurement || 0;
+      const Vat = product.productVat || 0.0;
+      const productSalePrice = product.productSalePrice || 0.0;
+      const quantity = product.productQuantity || 0;
+      const vat = Vat + "%";
+      const total = calculateTotal(quantity, productSalePrice, Vat);
+
+      const newProduct = {
+        productName,
+        unit,
+        quantity,
+        productSalePrice,
+        vat,
+        total,
+      };
+
+      if (Products.length === 0) {
+        form.setFieldsValue({
+          products: [newProduct],
+        });
+        setProducts([newProduct]);
         const fields = form.getFieldsValue(["products"]);
-        setProducts(fields.products);          
+        setProducts(fields.products);
       }
 
-
-        if (Products.length > 0) {
-          if (key >= 0 && key < Products.length) {
-            Products[key] = newProduct;
-            form.setFieldsValue({
-              products: Products,
-            });
-            setProducts(Products);
-          } else {
-            Products.push(newProduct);
-            form.setFieldsValue({
-              products: Products,
-            });
-            const fields = form.getFieldsValue(["products"]);
-            setProducts(fields.products);
-          }
+      if (Products.length > 0) {
+        if (key >= 0 && key < Products.length) {
+          Products[key] = newProduct;
+          form.setFieldsValue({
+            products: Products,
+          });
+          console.log("no render");
+          setProducts(Products);
+        } else {
+          Products.push(newProduct);
+          form.setFieldsValue({
+            products: Products,
+          });
+          const fields = form.getFieldsValue(["products"]);
+          setProducts(fields.products);
         }
       }
-    };
-  
-  const onFinish =(value)=>{
-    console.log(value)
-  }
+    }
+  };
+  // update sale price
+  const handleSalePrice = (e, key) => {
+    const updateProduct = Products.map((product, index) => {
+      const productSalePrice = e;
+      if (key === index) {
+        const newProduct = {
+          ...product,
+          productSalePrice,
+          total: calculateTotal(product.quantity, e, parseFloat(product.vat)),
+        };
+        return newProduct;
+      } else {
+        return product;
+      }
+    });
+    setProducts(updateProduct);
+    form.setFieldsValue({
+      products: updateProduct,
+    });
+  };
+
+  // update product quantity
+  const handleQuantity = (e, key) => {
+    const updateProduct = Products.map((product, index) => {
+      const quantity = e;
+      if (key === index) {
+        const newProduct = {
+          ...product,
+          quantity,
+          total: calculateTotal(
+            e,
+            product.productSalePrice,
+            parseFloat(product.vat)
+          ),
+        };
+        return newProduct;
+      } else {
+        return product;
+      }
+    });
+    setProducts(updateProduct);
+    form.setFieldsValue({
+      products: updateProduct,
+    });
+  };
+
+  // update vat tax
+  const handleChangeVatTax = (e) => {
+    const filteredTax = data.getAllVats.filter((taxItem) =>
+      e.includes(taxItem.title)
+    );
+    const totalTax = filteredTax.reduce(
+      (sum, taxItem) => sum + taxItem.percentage,
+      0
+    );
+    setVatTax(totalTax);
+  };
+  const handlePaidAmount = (e) => {
+    setPaidAmount(e);
+  };
+  // remove product
+  const handleRemoveProduct = (index) => {
+    const newProducts = Products.splice(index, 1);
+    setProducts(newProducts);
+  };
+
+
+  const onFinish = (value) => {
+    // submit form
+  };
+
   let content;
   if (isLoading) {
     content = "loading...";
@@ -111,7 +216,7 @@ function App() {
                   <hr />
                 </div>
 
-                {fields.map(({ key, name, ...restField  }, index) => (
+                {fields.map(({ key, name, ...restField }, index) => (
                   <Space
                     key={key}
                     style={{
@@ -136,7 +241,7 @@ function App() {
                         placeholder="Select a product"
                         optionFilterProp="children"
                         style={{ width: 400 }}
-                        onChange={(value)=>handleProductSelect(value,index ,fields)}
+                        onChange={(value) => handleProductSelect(value, index)}
                       >
                         {data?.getAllProduct?.map((item) => (
                           <Option key={item.id} value={item.name}></Option>
@@ -146,7 +251,7 @@ function App() {
 
                     <Form.Item {...restField} name={[name, "unit"]}>
                       <InputNumber
-                        readOnly
+                        disabled
                         placeholder="U.M."
                         // onChange={onChange}
                       />
@@ -166,7 +271,7 @@ function App() {
                         min={1}
                         style={{ width: 200 }}
                         placeholder="Quantity"
-                        // onChange={onChange}
+                        onChange={(e) => handleQuantity(e, index)}
                       />
                     </Form.Item>
 
@@ -182,23 +287,24 @@ function App() {
                     >
                       <InputNumber
                         style={{ width: 200 }}
+                        onChange={(e) => handleSalePrice(e, index)}
                         placeholder="5000"
-                        // onChange={onChange}
                       />
                     </Form.Item>
 
                     <Form.Item {...restField} name={[name, "vat"]}>
-                      <Input bordered={false} defaultValue={0+"%"} />
+                      <Input bordered={false} defaultValue={0 + "%"} />
                     </Form.Item>
 
                     <Form.Item {...restField} name={[name, "total"]}>
-                      <Input bordered={false} defaultValue={0} />
+                      <Input readOnly bordered={false} defaultValue={0} />
                     </Form.Item>
 
                     <DeleteOutlined
                       className="bg-red-600 text-white p-2 rounded-sm"
                       onClick={() => {
                         remove(name);
+                        handleRemoveProduct(index);
                       }}
                     />
                   </Space>
@@ -219,14 +325,14 @@ function App() {
               </>
             )}
           </Form.List>
+          
+          {/* form left side */}
           <div className="flex justify-between">
-            {/* form left side */}
-
             <div className="w-[48%]">
               <div className="flex justify-between items-center">
                 <Form.Item
                   label="customer"
-                  name={[name, "customerId"]}
+                  name={[name, "customer"]}
                   rules={[
                     {
                       required: true,
@@ -270,7 +376,7 @@ function App() {
                 </Form.Item>
                 <Form.Item
                   style={{ width: "49%" }}
-                  name={[name, "userId"]}
+                  name={[name, "user"]}
                   label="Sales Person"
                   rules={[
                     {
@@ -305,48 +411,62 @@ function App() {
             <div className="w-[48%]">
               <div className="flex justify-between mb-2">
                 <strong>Total:</strong>
-                <strong>0.00</strong>
+                <strong>{totalProductsPrice}</strong>
               </div>
               <div className="flex justify-between items-center">
                 <span>Discount</span>
-                <Form.Item>
-                  <InputNumber style={{ width: "250px" }} min={0} />
+                <Form.Item name={[name, "discount"]}>
+                  <InputNumber
+                    onChange={(e) => setDiscount(e)}
+                    style={{ width: "250px" }}
+                    min={0}
+                  />
                 </Form.Item>
               </div>
               <div className="flex justify-between mb-2">
                 <span>After Discount</span>
-                <span>0.00</span>
+                <span>{afterDiscount}</span>
               </div>
               <div className="flex justify-between">
                 <span>Vat/Tax</span>
-                <Select
-                  mode="multiple"
-                  allowClear
-                  style={{
-                    width: "250px",
-                  }}
-                  placeholder="Please select"
-                  // onChange={handleChange}
-                >
-                  {data?.getAllVats?.map((v) => (
-                    <Option key={v.id} value={v.title}></Option>
-                  ))}
-                </Select>
+                <Form.Item name={[name, "vats"]} className="my-0">
+                  <Select
+                    mode="multiple"
+                    allowClear
+                    style={{
+                      width: "250px",
+                    }}
+                    placeholder="Please select"
+                    onChange={handleChangeVatTax}
+                  >
+                    {data?.getAllVats?.map((v) => (
+                      <Option key={v.id} value={v.title}></Option>
+                    ))}
+                  </Select>
+                </Form.Item>
               </div>
               <div className="flex justify-between my-3">
                 <span>Total payable</span>
-                <span>0.00</span>
+                <span>
+                  
+                    {payable}
+                 
+                </span>
               </div>
 
               <div className="flex justify-between">
                 <span>Paid Amount</span>
-                <Form.Item>
-                  <InputNumber style={{ width: "250px" }} min={0} />
+                <Form.Item name={[name , "paidAmount"]}>
+                  <InputNumber
+                    onChange={(e) => handlePaidAmount(e)}
+                    style={{ width: "250px" }}
+                    min={0}
+                  />
                 </Form.Item>
               </div>
               <div className="flex justify-between mb-2">
                 <strong>Due Amount</strong>
-                <strong>0.00</strong>
+                <strong>{DuaAmount}</strong>
               </div>
               <Form.Item>
                 <Button style={{ width: "100%" }} htmlType="submit">
@@ -361,8 +481,5 @@ function App() {
   }
   return content;
 }
-
-  
-
 
 export default App;

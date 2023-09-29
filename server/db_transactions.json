@@ -3,7 +3,7 @@
   "getAllVats": [
     {
       "id": 1,
-      "title": "cgst",
+      "title": "CGST%2",
       "percentage": 15,
       "status": true,
       "createdAt": "2023-09-12T20:27:54.540Z",
@@ -11,7 +11,7 @@
     },
     {
       "id": 2,
-      "title": "sgst",
+      "title": "SGST%15",
       "percentage": 15,
       "status": true,
       "createdAt": "2023-09-12T20:27:54.540Z",
@@ -19,7 +19,7 @@
     },
     {
       "id": 3,
-      "title": "Fees",
+      "title": "FEES%5",
       "percentage": 5,
       "status": true,
       "createdAt": "2023-09-17T09:41:43.175Z",
@@ -27,7 +27,7 @@
     },
     {
       "id": 4,
-      "title": "IGST",
+      "title": "IGST%2",
       "percentage": 2,
       "status": true,
       "createdAt": "2023-09-21T06:39:45.546Z",
@@ -35,7 +35,7 @@
     },
     {
       "id": 5,
-      "title": "aaa",
+      "title": "ASD%9",
       "percentage": 9,
       "status": true,
       "createdAt": "2023-09-25T01:54:52.949Z",
